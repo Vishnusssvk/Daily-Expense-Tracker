@@ -9,21 +9,59 @@ function getAIPrediction($description) {
   $api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
   $api_key = "AIzaSyC29EOW6fpCyotHzh5tOELnVvhfwXw89v0"; // Replace with your actual API key
   
-  // Rest of your initialization code...
+  // Update prompt to enforce JSON format
+  $prompt = "Extract expense information from this description: \"$description\". " .
+           "Return ONLY a valid JSON object with the following fields if they can be determined: " .
+           "category (one of: Food, Transport, Entertainment, Utilities, Shopping, Health, Education, Travel, Other), " .
+           "cost (numeric value only), " .
+           "date (in YYYY-MM-DD format), " .
+           "description (a cleaned up, concise version of the expense). " .
+           "Format your response as valid JSON with no additional text, comments, or explanations.";
+  
+  // Prepare request data for Gemini API
+  $data = array(
+      'contents' => [
+          [
+              'parts' => [
+                  [
+                      'text' => $prompt
+                  ]
+              ]
+          ]
+      ],
+      'generationConfig' => [
+          'temperature' => 0.1,  // Lower temperature for more predictable output
+          'topP' => 1,
+          'topK' => 32,
+          'maxOutputTokens' => 150
+      ]
+  );
+
+  // Initialize cURL
+  $ch = curl_init($api_url . '?key=' . $api_key);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_POST, true);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
   
   // Execute cURL request
   $response = curl_exec($ch);
   
   // Check for errors
   if(curl_errno($ch)) {
-    return array('error' => curl_error($ch));
+    $error = curl_error($ch);
+    curl_close($ch);
+    return array('error' => "API request failed: $error");
   }
   
   // Close cURL session
   curl_close($ch);
   
-  // Decode JSON response
+  // Process the response
   $result = json_decode($response, true);
+  
+  // Debug: Log the full response
+  error_log("API Response: " . $response);
   
   // Check if the response is valid
   if(!isset($result['candidates'][0]['content']['parts'][0]['text'])) {
@@ -33,19 +71,57 @@ function getAIPrediction($description) {
   // Extract the text from Gemini's response
   $text = $result['candidates'][0]['content']['parts'][0]['text'];
   
-  // Try to extract JSON from the text
-  $jsonStart = strpos($text, '{');
-  $jsonEnd = strrpos($text, '}');
+  // Debug: Log the extracted text
+  error_log("Response Text: " . $text);
   
-  if($jsonStart === false || $jsonEnd === false) {
-    return array('error' => 'Could not parse AI response');
+  // Try to extract JSON from the text
+  $jsonText = $text;
+  
+  // Clean up the text - remove code blocks if present
+  $jsonText = preg_replace('/```json\s*|\s*```/', '', $jsonText);
+  
+  // Remove any non-JSON text that might be in the response
+  $jsonStart = strpos($jsonText, '{');
+  $jsonEnd = strrpos($jsonText, '}');
+  
+  if($jsonStart !== false && $jsonEnd !== false) {
+    $jsonText = substr($jsonText, $jsonStart, $jsonEnd - $jsonStart + 1);
   }
   
-  $jsonText = substr($text, $jsonStart, $jsonEnd - $jsonStart + 1);
+  // Debug: Log the JSON text
+  error_log("Extracted JSON: " . $jsonText);
+  
+  // Try to decode the JSON
   $prediction = json_decode($jsonText, true);
   
   if(!$prediction) {
-    return array('error' => 'Failed to parse prediction data');
+    // Try fallback method for extracting data
+    $prediction = array();
+    
+    // Try to extract category
+    if(preg_match('/category[:\s]+"?([^",\n]+)"?/i', $text, $matches)) {
+      $prediction['category'] = trim($matches[1]);
+    }
+    
+    // Try to extract cost
+    if(preg_match('/cost[:\s]+"?(\d+(?:\.\d+)?)"?/i', $text, $matches)) {
+      $prediction['cost'] = trim($matches[1]);
+    }
+    
+    // Try to extract date
+    if(preg_match('/date[:\s]+"?(\d{4}-\d{2}-\d{2})"?/i', $text, $matches)) {
+      $prediction['date'] = trim($matches[1]);
+    }
+    
+    // Try to extract description
+    if(preg_match('/description[:\s]+"([^"]+)"/i', $text, $matches)) {
+      $prediction['description'] = trim($matches[1]);
+    }
+    
+    // If we couldn't extract anything, return an error
+    if(empty($prediction)) {
+      return array('error' => 'Failed to parse prediction data');
+    }
   }
   
   // Validate prediction data

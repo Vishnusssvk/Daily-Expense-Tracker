@@ -18,34 +18,6 @@ if (strlen($_SESSION['detsuid']==0)) {
     <!-- Boxicons CDN Link -->
     <link href='https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css' rel='stylesheet'>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css">
-
-    <style>
-      #ai-button {
-      color: #fff;
-      display: flex;
-      align-items: center;
-      padding: 10px;
-      font-size: 16px;
-    }
-
-    #ai-button i {
-      margin-right: 10px;
-    }
-
-    #ai-button:hover {
-      background-color: #4CAF50; /* Change this color as needed */
-    }
-
-    </style>
-    <script>
-      // Add this script at the bottom or in the script section of your page
-        $(document).ready(function() {
-          $('#ai-button').click(function() {
-            alert("AI Assistant: How can I assist you today?");
-            // Add your AI-related functionality here, such as opening a modal or calling an AI service
-          });
-        });
-        </script>
      <meta name="viewport" content="width=device-width, initial-scale=1.0">
      <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -111,12 +83,7 @@ if (strlen($_SESSION['detsuid']==0)) {
             <span class="links_name">Setting</span>
           </a>
         </li>
-        <li>
-          <a href="ai_assistant.php" id="ai-button">
-            <i class="bx bx-brain"></i>
-            <span class="links_name">AI Assistant</span>
-          </a>
-        </li>
+
 
         <li class="log_out">
           <a href="logout.php">
